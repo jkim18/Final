@@ -1,0 +1,125 @@
+import themidibus.*;
+MidiBus myBus; // The MidiBus
+
+import processing.sound.*;
+import java.util.Map;
+import processing.opengl.*;
+
+SinOsc[] sineWaves; 
+
+// The number of oscillators
+int numSines = 5; 
+
+// A float for calculating the amplitudes
+float[] sineVolume;
+
+final int maxPitch = 104;
+final int minPitch = 28;
+
+class Rect {
+  float x, y;
+  float vy;
+  color c;
+
+  Rect(int x, int y, color c) {
+    this.x = x; 
+    this.y = y;
+    this.c = c;
+    vy = random(2, 7);
+  }
+
+  void draw() {
+    //println(hm.keySet().size());
+    noStroke();
+    fill(c);
+    rect(x, y, width/maxPitch, 50);
+  }
+
+  void move() {
+    y = y + vy;
+  }
+}
+
+ArrayList<Rect> list;
+
+void setup() {
+  size(400, 400);
+  MidiBus.list();
+  myBus = new MidiBus(this, "Port1", -1);
+
+  list = new ArrayList<Rect>();
+}
+
+void draw() {
+  background(255);
+  colorMode(HSB);
+  synchronized(this) {
+    for (Integer pitch : hm.keySet()) {
+      // for each pitch in the map of all currently playing pitches
+      noStroke();
+      fill(pitch*3, 255, 255);
+      rect((pitch-minPitch)*width/(maxPitch-minPitch), 100, width/maxPitch, 50);
+    }
+    for (Rect r : list) {
+      r.draw();
+      r.move();
+    }
+  }
+}
+
+//int lastSine = 0;
+
+// map that maps integer pitch numbers to actual oscillators that make sound
+HashMap<Integer, SinOsc> hm = new HashMap<Integer, SinOsc>();
+
+//for (HashMap<pitch,lastSine> :: Iterator i(hash); i.next();) {
+//  print(me.getKey() + "is");
+//  println(me.getValue());
+//}
+
+void noteOn(int channel, int pitch, int velocity) {
+  // Receive a noteOn
+  println();
+  println("Note On:");
+  println("--------");
+  println("Channel:"+channel);
+  println("Pitch:"+pitch);
+  println("Velocity:"+velocity);
+
+  SinOsc wave = new SinOsc(this);
+  wave.freq(6.875 *(pow(2.0, ((3.0+(pitch))/12.0))));
+  wave.amp((float) velocity / 127.0);
+  wave.play();
+  synchronized(this) {
+    hm.put(pitch, wave);
+  }
+}
+
+void noteOff(int channel, int pitch, int velocity) {
+  // Receive a noteOff
+  println();
+  println("Note Off:");
+  println("--------");
+  println("Channel:"+channel);
+  println("Pitch:"+pitch);
+  println("Velocity:"+velocity);
+
+  synchronized(this) {
+    // Receive a noteOff - or releasing the note from your midi device
+    SinOsc wave = hm.get(pitch);
+    //wave.amp(0);
+    wave.stop();
+    hm.remove(pitch);
+    list.add(new Rect((pitch-minPitch)*width/(maxPitch-minPitch), 100, color(pitch*3, 255, 255)));
+  }
+}
+
+void controllerChange(int channel, int number, int value) {
+  // Receive a controllerChange
+  println();
+  println("Controller Change:");
+  println("--------");
+  println("Channel:"+channel);
+  println("Number:"+number);
+  println("Value:"+value);
+}
